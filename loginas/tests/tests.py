@@ -266,6 +266,29 @@ class ViewTest(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(urlsplit(response["Location"])[2], "/another-redirect")
 
+    @override_settings(LOGINAS_LOGOUT_REDIRECT_URL="/another-redirect")
+    def test_regular_logout(self):
+        create_user("me", "pass", is_superuser=True, is_staff=True)
+        self.assertTrue(self.client.login(username="me", password="pass"))
+        response = self.client.get(reverse("admin:logout"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Logged out")
+
+    @override_settings(LOGINAS_LOGOUT_REDIRECT_URL="/another-redirect")
+    def test_admin_logout(self):
+        create_user("me", "pass", is_superuser=True, is_staff=True)
+        self.assertTrue(self.client.login(username="me", password="pass"))
+        response = self.get_target_url()
+        self.assertLoginSuccess(response, self.target_user)
+
+        url = reverse("loginas-user-login", kwargs={"user_id": self.target_user.id})
+        self.client.get(url)
+        self.assertCurrentUserIs(self.target_user)
+
+        response = self.client.get(reverse("admin:logout"))
+        self.assertEqual(response.status_code, 302)
+        self.assertNotEqual(urlsplit(response["Location"])[2], "/another-redirect")
+
     def test_last_login_not_updated(self):
         last_login = timezone.now() - timedelta(hours=1)
         self.target_user.last_login = last_login
